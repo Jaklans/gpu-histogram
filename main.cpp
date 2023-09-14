@@ -8,6 +8,8 @@
 
 #include "histogram.comp"
 
+#include <Windows.h>
+
 const unsigned int SCREEN_WIDTH = 32;
 const unsigned int SCREEN_HEIGHT = 32;
 
@@ -152,31 +154,27 @@ int main()
 	// TODO, assert this is less than max
 	const unsigned int DISPATCH_COUNT = 1024;
 	const unsigned int INPUT_COUNT = 1024;
-	const unsigned int BIN_SIZE = 32;
+	const unsigned int BIN_SIZE = 1;
 
-	unsigned int* inputArray = new unsigned int[INPUT_COUNT];
-	unsigned int inputSize = INPUT_COUNT * sizeof(unsigned int);
+	unsigned char* inputArray = new unsigned char[INPUT_COUNT];
+	unsigned int inputSize = INPUT_COUNT * sizeof(unsigned char);
 	const unsigned int inputBinding = 0;
 	GLuint inputBuffer = 0;
 
 	unsigned int* outputArray = new unsigned int[INPUT_COUNT];
-	unsigned int outputSize = INPUT_COUNT * sizeof(unsigned int);
+	unsigned int outputCount = ceil(256 / BIN_SIZE);
+	unsigned int outputSize = outputCount * sizeof(unsigned int);
 	const unsigned int outputBinding = 1;
 	GLuint outputBuffer = 0;
 	
 	for (int i = 0; i < INPUT_COUNT; i++) {
-		inputArray[i] = 0;
-		inputArray[i] |= 5;
-		inputArray[i] |= 3 << 8;
-		if (i % 2) {
-			inputArray[i] |= 17 << 8;
-		}
+		inputArray[i] = (char)1;
+		//inputArray[i] |= 6;
+		//inputArray[i] |= (3 << 8);
+		//if (i % 2) {
+		//	inputArray[i] |= 17 << 8;
+		//}
 	}
-
-
-	std::cout << inputArray[0] << std::endl;
-	std::cout << inputArray[1] << std::endl;
-	std::cout << inputArray[2] << std::endl;
 
 
 	glGenBuffers(1, &inputBuffer);
@@ -206,13 +204,22 @@ int main()
 
 	glfwPollEvents();
 
-	//glBindBuffer(GL_SHADER_STORAGE_BUFFER, 2);
- 	glGetNamedBufferSubData(outputBuffer, 0, inputSize, outputArray);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 1);
+ 	glGetNamedBufferSubData(outputBuffer, 0, outputSize, outputArray);
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-	std::cout << outputArray[0] << std::endl;
-	std::cout << outputArray[1] << std::endl;
-	std::cout << outputArray[2] << std::endl;
+	Sleep(250);
+	//for (int i = 0; i < outputCount; i++) {
+	//	outputArray[i] = 0;
+	//}
+	//for (int i = 0; i < INPUT_COUNT; i++) {
+	//	outputArray[inputArray[i]]++;
+	//}
+
+
+	for (int i = 0; i < outputCount; i++) {
+		std::cout << i << ": " << outputArray[i] << std::endl;
+	}
 
 	delete[] inputArray;
 	delete[] outputArray;

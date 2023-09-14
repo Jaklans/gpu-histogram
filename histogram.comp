@@ -16,9 +16,28 @@ layout(binding = 1) buffer _outputData
     uint outputData[];
 };
 
+uint ParseByteAsUint(uint value, uint byteIndex) {
+    return uint((value >> (byteIndex * 8)) & 255);
+}
+
+void IncrementHistogram(uint value) {
+    atomicAdd(outputData[value], 1);
+}
+
 void main()
 {
-    outputData[gl_GlobalInvocationID.x] = inputData[gl_GlobalInvocationID.x] + int(inputCount);
+    uint index = uint(gl_GlobalInvocationID.x);
+
+    if (index > inputCount)
+    {
+        return;
+    }
+
+    uint activeValue = inputData[index];
+    IncrementHistogram(ParseByteAsUint(activeValue, 0));
+    IncrementHistogram(ParseByteAsUint(activeValue, 1));
+    IncrementHistogram(ParseByteAsUint(activeValue, 2));
+    IncrementHistogram(ParseByteAsUint(activeValue, 3));
 }
 
 )"; 
