@@ -6,6 +6,8 @@
 #include"glad/glad.h"
 #include"GLFW/glfw3.h"
 
+#include "histogram.comp"
+
 const unsigned int SCREEN_WIDTH = 32;
 const unsigned int SCREEN_HEIGHT = 32;
 
@@ -13,41 +15,6 @@ const unsigned short OPENGL_MAJOR_VERSION = 4;
 const unsigned short OPENGL_MINOR_VERSION = 6;
 
 bool vSync = true;
-
-
-const char* screenComputeShaderSource = R"(#version 460 core
-layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
-layout(rgba32f, binding = 0) uniform image2D screen;
-void main()
-{
-	vec4 pixel = vec4(0.075, 0.133, 0.173, 1.0);
-	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
-	
-	ivec2 dims = imageSize(screen);
-	float x = -(float(pixel_coords.x * 2 - dims.x) / dims.x); // transforms to [-1.0, 1.0]
-	float y = -(float(pixel_coords.y * 2 - dims.y) / dims.y); // transforms to [-1.0, 1.0]
-
-	float fov = 90.0;
-	vec3 cam_o = vec3(0.0, 0.0, -tan(fov / 2.0));
-	vec3 ray_o = vec3(x, y, 0.0);
-	vec3 ray_d = normalize(ray_o - cam_o);
-
-	vec3 sphere_c = vec3(0.0, 0.0, -5.0);
-	float sphere_r = 1.0;
-
-	vec3 o_c = ray_o - sphere_c;
-	float b = dot(ray_d, o_c);
-	float c = dot(o_c, o_c) - sphere_r * sphere_r;
-	float intersectionState = b * b - c;
-	vec3 intersection = ray_o + ray_d * (-b + sqrt(b * b - c));
-
-	if (intersectionState >= 0.0)
-	{
-		pixel = vec4((normalize(intersection - sphere_c) + 1.0) / 2.0, 1.0);
-	}
-
-	imageStore(screen, pixel_coords, pixel);
-})";
 
 void LogComputeCapability() 
 {
@@ -74,6 +41,56 @@ void LogComputeCapability()
 	std::cout << "Max invocations count per work group: " << work_grp_inv << "\n";
 }
 
+// Borrowed from https://learnopengl.com/In-Practice/Debugging
+void APIENTRY glDebugOutput(GLenum source,
+	GLenum type,
+	unsigned int id,
+	GLenum severity,
+	GLsizei length,
+	const char* message,
+	const void* userParam)
+{
+	// ignore non-significant error/warning codes
+	if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return;
+
+	std::cout << "---------------" << std::endl;
+	std::cout << "Debug message (" << id << "): " << message << std::endl;
+
+	switch (source)
+	{
+	case GL_DEBUG_SOURCE_API:             std::cout << "Source: API"; break;
+	case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   std::cout << "Source: Window System"; break;
+	case GL_DEBUG_SOURCE_SHADER_COMPILER: std::cout << "Source: Shader Compiler"; break;
+	case GL_DEBUG_SOURCE_THIRD_PARTY:     std::cout << "Source: Third Party"; break;
+	case GL_DEBUG_SOURCE_APPLICATION:     std::cout << "Source: Application"; break;
+	case GL_DEBUG_SOURCE_OTHER:           std::cout << "Source: Other"; break;
+	} std::cout << std::endl;
+
+	switch (type)
+	{
+	case GL_DEBUG_TYPE_ERROR:               std::cout << "Type: Error"; break;
+	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behaviour"; break;
+	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behaviour"; break;
+	case GL_DEBUG_TYPE_PORTABILITY:         std::cout << "Type: Portability"; break;
+	case GL_DEBUG_TYPE_PERFORMANCE:         std::cout << "Type: Performance"; break;
+	case GL_DEBUG_TYPE_MARKER:              std::cout << "Type: Marker"; break;
+	case GL_DEBUG_TYPE_PUSH_GROUP:          std::cout << "Type: Push Group"; break;
+	case GL_DEBUG_TYPE_POP_GROUP:           std::cout << "Type: Pop Group"; break;
+	case GL_DEBUG_TYPE_OTHER:               std::cout << "Type: Other"; break;
+	} std::cout << std::endl;
+
+	switch (severity)
+	{
+	case GL_DEBUG_SEVERITY_HIGH:         std::cout << "Severity: high"; break;
+	case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
+	case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
+	case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
+	} std::cout << std::endl;
+	std::cout << std::endl;
+}
+
+
+
 int main()
 {
 	glfwInit();
@@ -83,6 +100,8 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true); 
+	
 
 	GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "OpenGL Compute Shaders", NULL, NULL);
 	if (!window)
@@ -92,31 +111,106 @@ int main()
 	}
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(vSync);
-
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
 		std::cout << "Failed to initialize OpenGL context" << std::endl;
 	}
 
+	int flags; glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+	if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
+	{
+		glEnable(GL_DEBUG_OUTPUT);
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+		glDebugMessageCallback(glDebugOutput, nullptr);
+		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+	}
+	else 
+	{
+		std::cout << "unable to set debug callback";
+	}
+
+	std::cout << "OpenCL version " << glGetString(GL_VERSION) << std::endl;
 	LogComputeCapability();
 
 	GLuint computeShader = glCreateShader(GL_COMPUTE_SHADER);
-	glShaderSource(computeShader, 1, &screenComputeShaderSource, NULL);
+	glShaderSource(computeShader, 1, &HistogramShaderSource, NULL);
 	glCompileShader(computeShader);
+
+	GLint success = 0;
+	glGetShaderiv(computeShader, GL_COMPILE_STATUS, &success);
+
+	if (!success)
+	{
+		std::cout << "Failed to compile shader";
+		exit(1);
+	}
 
 	GLuint computeProgram = glCreateProgram();
 	glAttachShader(computeProgram, computeShader);
 	glLinkProgram(computeProgram);
 
-	while (!glfwWindowShouldClose(window))
-	{
-		glUseProgram(computeProgram);
-		glDispatchCompute(ceil(SCREEN_WIDTH / 8), ceil(SCREEN_HEIGHT / 4), 1);
-		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	// TODO, assert this is less than max
+	const unsigned int DISPATCH_COUNT = 1024;
+	const unsigned int INPUT_COUNT = 1024;
+	const unsigned int BIN_SIZE = 32;
 
-		glfwPollEvents();
+	unsigned int* inputArray = new unsigned int[INPUT_COUNT];
+	unsigned int inputSize = INPUT_COUNT * sizeof(unsigned int);
+	const unsigned int inputBinding = 0;
+	GLuint inputBuffer = 0;
+
+	unsigned int* outputArray = new unsigned int[INPUT_COUNT];
+	unsigned int outputSize = INPUT_COUNT * sizeof(unsigned int);
+	const unsigned int outputBinding = 1;
+	GLuint outputBuffer = 0;
+	
+	for (int i = 0; i < INPUT_COUNT; i++) {
+		inputArray[i] = 0;
+		inputArray[i] |= 5;
+		inputArray[i] |= 3 << 8;
+		if (i % 2) {
+			inputArray[i] |= 17 << 8;
+		}
 	}
 
+
+	std::cout << inputArray[0] << std::endl;
+	std::cout << inputArray[1] << std::endl;
+	std::cout << inputArray[2] << std::endl;
+
+
+	glGenBuffers(1, &inputBuffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffer);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, inputSize, inputArray, GL_STREAM_DRAW);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, inputBinding, inputBuffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+	glGenBuffers(1, &outputBuffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, outputBuffer);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, outputSize, nullptr, GL_STREAM_READ);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, outputBinding, outputBuffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+
+
+	glUseProgram(computeProgram);
+	glDispatchCompute(DISPATCH_COUNT, 1, 1);
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+	glFinish();
+
+	glfwPollEvents();
+
+	//glBindBuffer(GL_SHADER_STORAGE_BUFFER, 2);
+ 	glGetNamedBufferSubData(outputBuffer, 0, inputSize, outputArray);
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+	std::cout << outputArray[0] << std::endl;
+	std::cout << outputArray[1] << std::endl;
+	std::cout << outputArray[2] << std::endl;
+
+	delete[] inputArray;
+	delete[] outputArray;
 
 	glfwDestroyWindow(window);
 	glfwTerminate();

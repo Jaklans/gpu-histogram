@@ -1,0 +1,25 @@
+const char* HistogramShaderSource = R"(
+
+#version 460 core
+layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+// variables
+//layout (location = 0) uniform uint inputCount;  
+//layout (location = 1) uniform uint binSize;
+
+layout(binding = 0) buffer _inputData
+{
+    int inputData[];
+}; 
+
+layout(binding = 1) buffer _outputData
+{
+    int outputData[];
+};
+
+void main()
+{
+    outputData[gl_GlobalInvocationID.x] = inputData[gl_GlobalInvocationID.x] + 1;
+}
+
+)"; 
