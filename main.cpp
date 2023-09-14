@@ -192,8 +192,13 @@ int main()
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
 
-
 	glUseProgram(computeProgram);
+
+	// Send over input count and bin size
+	glUniform1ui(0, INPUT_COUNT);
+	glUniform1ui(1, BIN_SIZE);
+
+
 	glDispatchCompute(DISPATCH_COUNT, 1, 1);
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
