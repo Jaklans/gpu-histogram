@@ -35,7 +35,7 @@ void main()
         return;
     }
 
-    uint binCount = uint(ceil(256 / binSize));
+    uint binCount = uint(ceil(256.0 / binSize));
 
     if (gl_GlobalInvocationID.x >= binCount)
     {

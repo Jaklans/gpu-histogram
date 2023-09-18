@@ -169,7 +169,7 @@ int main()
 	// TODO, assert this is less than max
 	const unsigned int DISPATCH_COUNT = 1024;
 	const unsigned int INPUT_COUNT = 1024;
-	const unsigned int BIN_SIZE = 32;
+	const unsigned int BIN_SIZE = 16;
 
 	unsigned char* inputArray = new unsigned char[INPUT_COUNT];
 	unsigned int inputSize = INPUT_COUNT * sizeof(unsigned char);
@@ -177,7 +177,7 @@ int main()
 	GLuint inputBuffer = 0;
 
 	unsigned int* outputArray = new unsigned int[INPUT_COUNT];
-	unsigned int outputCount = ceil(256 / BIN_SIZE);
+	unsigned int outputCount = ceil(256.0 / BIN_SIZE);
 	unsigned int outputSize = outputCount * sizeof(unsigned int);
 	const unsigned int outputBinding = 1;
 	GLuint outputBuffer = 0;
