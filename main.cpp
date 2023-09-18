@@ -9,6 +9,7 @@
 #include "histogram.comp"
 
 #include <Windows.h>
+#include <vector>
 
 const unsigned int SCREEN_WIDTH = 32;
 const unsigned int SCREEN_HEIGHT = 32;
@@ -17,6 +18,10 @@ const unsigned short OPENGL_MAJOR_VERSION = 4;
 const unsigned short OPENGL_MINOR_VERSION = 6;
 
 bool vSync = true;
+
+
+// TODO: finish cleanup on early fails
+
 
 void LogComputeCapability() 
 {
@@ -144,6 +149,16 @@ int main()
 	if (!success)
 	{
 		std::cout << "Failed to compile shader";
+
+		GLint maxLength = 0;
+		glGetShaderiv(computeShader, GL_INFO_LOG_LENGTH, &maxLength);
+
+		// The maxLength includes the NULL character
+		std::vector<GLchar> errorLog(maxLength);
+		glGetShaderInfoLog(computeShader, maxLength, &maxLength, &errorLog[0]);
+
+		std::cout << errorLog.data() << std::endl;
+
 		exit(1);
 	}
 
@@ -154,7 +169,7 @@ int main()
 	// TODO, assert this is less than max
 	const unsigned int DISPATCH_COUNT = 1024;
 	const unsigned int INPUT_COUNT = 1024;
-	const unsigned int BIN_SIZE = 1;
+	const unsigned int BIN_SIZE = 32;
 
 	unsigned char* inputArray = new unsigned char[INPUT_COUNT];
 	unsigned int inputSize = INPUT_COUNT * sizeof(unsigned char);
@@ -168,7 +183,7 @@ int main()
 	GLuint outputBuffer = 0;
 	
 	for (int i = 0; i < INPUT_COUNT; i++) {
-		inputArray[i] = (char)1;
+		inputArray[i] = (char) i;
 		//inputArray[i] |= 6;
 		//inputArray[i] |= (3 << 8);
 		//if (i % 2) {
@@ -208,7 +223,6 @@ int main()
  	glGetNamedBufferSubData(outputBuffer, 0, outputSize, outputArray);
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-	Sleep(250);
 	//for (int i = 0; i < outputCount; i++) {
 	//	outputArray[i] = 0;
 	//}
