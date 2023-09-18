@@ -16,8 +16,6 @@ layout(std430, binding = 1) buffer _outputData
     uint outputData[];
 };
 
-uint localOutputBuffer[1024];
-
 uint ParseByteAsUint(uint value, uint byteIndex) {
     return uint((value >> (byteIndex * 8)) & 255);
 }
@@ -26,6 +24,59 @@ void IncrementHistogram(uint binIndex, uint amount) {
     atomicAdd(outputData[binIndex], amount);
 }
 
+void main()
+{
+    uint index = uint(gl_GlobalInvocationID.x);
+    uint binCount = uint(ceil(256.0 / binSize));
+    
+    uint inputWords = inputCount / 4;
+
+    // Indexing logic to break inputs into n workgroups. kernels 0-255 work on the first group,
+    // then 256-512 work on the next group and on. Would be simpler with a localworkgroup size
+    // of (256,1,1)
+    // is a bit messy, would clean up
+    uint workgroupCount = uint(gl_NumWorkGroups.x * gl_WorkGroupSize.x / 256.0); 
+    uint inputsPerGroup = max(uint(ceil(float(inputCount) / workgroupCount)), 4);
+    uint groupIndex = uint(gl_GlobalInvocationID.x / 256.0);
+    uint startingIndex = groupIndex * inputsPerGroup;
+    uint endingIndex = (groupIndex + 1) * inputsPerGroup;
+
+    // value this kernel is tallying
+    uint targetNumber = gl_GlobalInvocationID.x % 256;
+    uint targetCount = 0;
+
+
+
+    if (startingIndex >= inputCount)
+    {
+        return;
+    }
+
+    // 'word' refering to the int block containing the four values
+    uint startingWordIndex = startingIndex / 4;
+    uint endingWordIndex = endingIndex / 4;
+    uint inputWordCount = inputCount / 4;
+
+    for (uint wordIndex = startingWordIndex; wordIndex < endingWordIndex && wordIndex < inputWordCount; wordIndex++)
+    {
+        for (uint byte = 0; byte < 4; byte++)
+        {
+            uint activeValue = ParseByteAsUint(inputData[wordIndex], byte);
+            
+            if (activeValue == targetNumber){
+                targetCount++;
+            }
+        }
+    }
+
+    uint targetBinIndex = targetNumber / binSize;
+    IncrementHistogram(targetBinIndex, targetCount);
+    
+    // TODO: replace atomic increment with latteral add in workgroup, then only increment global memory once
+}
+
+
+// Bellow is a previous solution. it was functional, but did not divide the work very well
 void unparallel_main()
 {
     uint index = uint(gl_GlobalInvocationID.x);
@@ -64,116 +115,4 @@ void unparallel_main()
 
     IncrementHistogram(targetBinIndex, targetCount);
 }
-
-void secondmain()
-{
-    uint index = uint(gl_GlobalInvocationID.x);
-    uint binCount = uint(ceil(256.0 / binSize));
-    
-
-    uint totalInvocations = gl_WorkGroupSize.x * gl_NumWorkGroups.x;
-    uint inputsPerThread = max(4, inputCount * binCount / totalInvocations);
-
-    uint targetBinIndex = gl_LocalInvocationID.x % binCount;
-    uint targetRangeMin = uint(targetBinIndex * binSize);
-    uint targetRangeMax = uint((targetBinIndex + 1) * binSize);
-
-    if (index * 4 >= inputCount)
-    {
-        return;
-    }
-
-
-    if (gl_GlobalInvocationID.x >= binCount)
-    {
-        return;
-    }
-
-
-
-
-
-    uint targetCount = 0;
-
-    for (uint i = 0; i < inputCount / 4; i++)
-    {
-        for (uint byte = 0; byte < 4; byte++)
-        {
-            uint activeValue = ParseByteAsUint(inputData[i], byte);
-
-            if (activeValue >= targetRangeMin){
-                if (activeValue < targetRangeMax){
-                    targetCount++;
-                }
-            }
-        }
-    }
-
-    IncrementHistogram(targetBinIndex, targetCount);
-}
-
-void main()
-{
-    uint index = uint(gl_GlobalInvocationID.x);
-    uint binCount = uint(ceil(256.0 / binSize));
-    
-    uint inputWords = inputCount / 4;
-
-    // Indexing logic to break inputs into n workgroups. kernels 0-255 work on the first group,
-    // then 256-512 work on the next group and on. Would be simpler with a localworkgroup size
-    // of (256,1,1)
-    // is a bit messy, would clean up
-    uint workgroupCount = uint(gl_NumWorkGroups.x * gl_WorkGroupSize.x / 256.0); // 4
-    uint inputsPerGroup = max(inputCount / workgroupCount, 4); // 256
-    //uint inputsPerGroup = uint(max(ceil(float(inputCount) / (gl_NumWorkGroups.x * gl_WorkGroupSize.x / 255.0 / 4.0)), 4));
-    //uint groupCount = uint(max(ceil(inputCount / inputsPerGroup), 1));
-    uint groupIndex = uint(gl_GlobalInvocationID.x / 256.0);
-    uint startingIndex = groupIndex * inputsPerGroup;
-    uint endingIndex = (groupIndex + 1) * inputsPerGroup;
-
-    // value this kernel is tallying
-    uint targetNumber = gl_GlobalInvocationID.x % 256;
-    uint targetCount = 0;
-
-
-
-    if (startingIndex >= inputCount)
-    {
-        return;
-    }
-
-    if (gl_GlobalInvocationID.x >= binCount)
-    {
-        //return;
-    }
-
-    // word refering to the int block containing the four values
-    uint startingWordIndex = startingIndex / 4;
-    uint endingWordIndex = endingIndex / 4;
-    uint inputWordCount = inputCount / 4;
-
-    for (uint wordIndex = startingWordIndex; wordIndex < endingWordIndex && wordIndex < inputWordCount; wordIndex++)
-    {
-        for (uint byte = 0; byte < 4; byte++)
-        {
-            uint activeValue = ParseByteAsUint(inputData[wordIndex], byte);
-            
-            if (activeValue == targetNumber){
-                targetCount++;
-            }
-            //targetCount = wordIndex;
-            //targetCount += activeValue == targetNumber ? 1 : 0;
-            //outputData[targetNumber] = wordIndex;
-        }
-    }
-
-    if (gl_GlobalInvocationID.x < 512){
-        //return;
-    }
-
-    uint targetBinIndex = targetNumber / binSize;
-    IncrementHistogram(targetBinIndex, targetCount);
-    //outputData[targetNumber] = inputsPerGroup;
-}
-
 )"; 

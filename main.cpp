@@ -166,9 +166,9 @@ int main()
 	glLinkProgram(computeProgram);
 
 	// TODO, assert this is less than max
-	const unsigned int DISPATCH_COUNT = 9;
-	const unsigned int INPUT_COUNT = 1124;
-	const unsigned int BIN_SIZE = 7;
+	const unsigned int DISPATCH_COUNT = 32;
+	const unsigned int INPUT_COUNT = 1 << 16;
+	const unsigned int BIN_SIZE = 32;
 
 	unsigned char* inputArray = new unsigned char[INPUT_COUNT];
 	unsigned int inputSize = INPUT_COUNT * sizeof(unsigned char);
@@ -182,7 +182,7 @@ int main()
 	GLuint outputBuffer = 0;
 	
 	for (int i = 0; i < INPUT_COUNT; i++) {
-		inputArray[i] = (char) 1;
+		inputArray[i] = (char) i;
 		//inputArray[i] |= 6;
 		//inputArray[i] |= (3 << 8);
 		//if (i % 2) {
