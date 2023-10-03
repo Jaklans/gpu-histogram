@@ -75,8 +75,8 @@ void APIENTRY glDebugOutput(GLenum source,
 	switch (type)
 	{
 	case GL_DEBUG_TYPE_ERROR:               std::cout << "Type: Error"; break;
-	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behaviour"; break;
-	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behaviour"; break;
+	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behavior"; break;
+	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behavior"; break;
 	case GL_DEBUG_TYPE_PORTABILITY:         std::cout << "Type: Portability"; break;
 	case GL_DEBUG_TYPE_PERFORMANCE:         std::cout << "Type: Performance"; break;
 	case GL_DEBUG_TYPE_MARKER:              std::cout << "Type: Marker"; break;
